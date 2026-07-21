@@ -286,7 +286,19 @@ class Client extends Controller
         $nbDests = count($dests);
         $amountParDest = intdiv($amountTotal, $nbDests);
 
-        $feeUnitaire = $this->calculateFee(3, $amountParDest);
+        $prefixDest = substr($dests[0]['phone'],0, 3);
+        $prefixDestdata = $db->table('prefixes')->where('prefix', $prefixDest)->get()->getRowArray();
+        $operateurDest = $prefixDestdata['operator_id']?? 0;
+
+        $feeUnitaire = $this->calculateFee(3,$amountParDest);
+
+        if($operateurClient == $operateurDest && $operateurClient != 0){
+            $operatorData = $db->table('operators')->where('id',$operateurClient)->get()->getRowArray();
+            $intraPercent = $operatorData['intra_fee_percent'] ?? 0;
+            if ($intraPercent > 0){
+                $feeUnitaire += (int) round($amountParDest * $intraPercent / 100);
+            }
+        }
         $feeTotal = $feeUnitaire * $nbDests;
         $totalADebiter = $amountTotal + $feeTotal;
 
@@ -358,5 +370,60 @@ class Client extends Controller
         ];
 
         return view('client/historique', $data);
+    }
+
+        public function epargne()
+    {
+        $client = session()->get('client');
+        if (!$client) return redirect()->to('client/login');
+
+        $savingsModel = new \App\Models\SavingsModel();
+        $savings = $savingsModel->where('client_id', $client['id'])->first();
+
+        $data = [
+            'client'  => $client,
+            'savings' => $savings
+        ];
+        return view('client/epargne', $data);
+    }
+
+    public function doEpargne()
+    {
+        $client = session()->get('client');
+        if (!$client) return redirect()->to('client/login');
+
+        $amount = (int) $this->request->getGet('amount');
+        $db = \Config\Database::connect();
+        $account = $db->table('accounts')->where('client_id', $client['id'])->get()->getRowArray();
+
+        if ($amount <= 0 || $account['balance'] < $amount) {
+            return redirect()->back()->with('error', 'Montant invalide ou solde insuffisant');
+        }
+
+        // Débiter le compte courant
+        $db->table('accounts')->where('client_id', $client['id'])->set('balance', 'balance - ' . $amount, false)->update();
+
+        // Créditer ou créer l'épargne
+        $savingsModel = new \App\Models\SavingsModel();
+        $existing = $savingsModel->where('client_id', $client['id'])->first();
+
+        if ($existing) {
+            $savingsModel->where('client_id', $client['id'])->set('amount', 'amount + ' . $amount, false)->update();
+        } else {
+            // Récupérer le taux d'intérêt de l'opérateur du client
+            $prefix = substr($client['phone'], 0, 3);
+            $prefixData = $db->table('prefixes')->where('prefix', $prefix)->get()->getRowArray();
+            $operatorId = $prefixData['operator_id'] ?? 1;
+            $operator = $db->table('operators')->where('id', $operatorId)->get()->getRowArray();
+            $rate = $operator['savings_rate'] ?? 0;
+
+            $savingsModel->insert([
+                'client_id'     => $client['id'],
+                'amount'        => $amount,
+                'interest_rate' => $rate
+            ]);
+        }
+
+        return redirect()->to('client/epargne')->with('success', 'Épargne ajoutée avec succès');
     }
 }

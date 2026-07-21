@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS operators (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL
+  name TEXT NOT NULL,
+  intra_fee_percent REAL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS prefixes (
@@ -96,6 +97,15 @@ CREATE TABLE IF NOT EXISTS operator_commissions (
     FOREIGN KEY(to_operator_id) REFERENCES operators(id)
 );
 
+CREATE TABLE IF NOT EXIST savings(
+  id INTEGER PRIMARY KEY AUTOCRIMENT ,
+  client_id INTEGER NOT NULL UNIQUE ,
+  amount INTEGER NOT NULL DEFAULT 0 ,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  update_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(client_id)REFERENCE clients(id)
+)
+
 -- Nouveaux opérateurs
 INSERT INTO operators (name) VALUES ('Operator B');
 INSERT INTO operators (name) VALUES ('Operator C');
@@ -116,3 +126,6 @@ INSERT INTO clients (phone, name) VALUES ('0340000001', 'David');
 INSERT INTO accounts (client_id, balance) VALUES (3, 100000);
 INSERT INTO accounts (client_id, balance) VALUES (4, 100000);
 
+UPDATE operators SET intra_fee_percent = 1.0 WHERE id = 1;
+
+sqlite3 writable/database.db "ALTER TABLE operators ADD COLUMN intra_fee_percent REAL DEFAULT 0;"

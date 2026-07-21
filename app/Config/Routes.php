@@ -34,3 +34,12 @@ $routes->get('client/do-transfert', 'Client::doTransfert');
 $routes->get('client/historique', 'Client::historique');
 
 $routes->get('operateur/commissions', 'Operateur::commissions');
+
+$routes->get('operateur/config-intra-fee', 'Operateur::configIntraFee');
+$routes->get('operateur/update-intra-fee', 'Operateur::updateIntraFee');
+
+$routes->get('client/epargne', 'Client::epargne');
+$routes->get('client/do-epargne', 'Client::doEpargne');
+
+$routes->get('operateur/config-epargne', 'Operateur::configEpargne');
+$routes->get('operateur/update-epargne-rate', 'Operateur::updateEpargneRate');

@@ -199,4 +199,35 @@ class Operateur extends Controller
 
         return view('operateur/commissions', $data);
     }
+
+        public function configIntraFee()
+    {
+        $db = \Config\Database::connect();
+        $data['operators'] = $db->table('operators')->get()->getResultArray();
+        return view('operateur/config_intra_fee', $data);
+    }
+
+    public function updateIntraFee()
+    {
+        $id = $this->request->getPost('operator_id');
+        $percent = $this->request->getPost('intra_fee_percent');
+        $db = \Config\Database::connect();
+        $db->table('operators')->where('id', $id)->update(['intra_fee_percent' => $percent]);
+        return redirect()->to('operateur/config-intra-fee')->with('success', 'Pourcentage mis à jour.');
+    }
+        public function configEpargne()
+    {
+        $db = \Config\Database::connect();
+        $data['operators'] = $db->table('operators')->get()->getResultArray();
+        return view('operateur/config_epargne', $data);
+    }
+
+    public function updateEpargneRate()
+    {
+        $id = $this->request->getPost('operator_id');
+        $rate = $this->request->getPost('savings_rate');
+        $db = \Config\Database::connect();
+        $db->table('operators')->where('id', $id)->update(['savings_rate' => $rate]);
+        return redirect()->to('operateur/config-epargne')->with('success', 'Taux mis à jour.');
+    }
 }
