@@ -82,3 +82,37 @@ INSERT INTO accounts (client_id, balance) VALUES (2, 50000);  -- 500.00
 INSERT INTO transactions (client_from, client_to, operation_type_id, amount, fee, reference) VALUES (NULL, 1, 1, 50000, 0, 'DEP-001');
 INSERT INTO transactions (client_from, client_to, operation_type_id, amount, fee, reference) VALUES (1, NULL, 2, 20000, 100, 'WDR-001');
 INSERT INTO transactions (client_from, client_to, operation_type_id, amount, fee, reference) VALUES (1, 2, 3, 10000, 100, 'TRF-001');
+-- ============================================
+-- Version 2 - Multi-opérateurs
+-- ============================================
+
+-- Table des commissions inter-opérateurs
+CREATE TABLE IF NOT EXISTS operator_commissions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_operator_id INTEGER NOT NULL,
+    to_operator_id INTEGER NOT NULL,
+    commission_percent REAL NOT NULL DEFAULT 0,
+    FOREIGN KEY(from_operator_id) REFERENCES operators(id),
+    FOREIGN KEY(to_operator_id) REFERENCES operators(id)
+);
+
+-- Nouveaux opérateurs
+INSERT INTO operators (name) VALUES ('Operator B');
+INSERT INTO operators (name) VALUES ('Operator C');
+
+-- Préfixes pour les nouveaux opérateurs
+INSERT INTO prefixes (operator_id, prefix) VALUES (2, '032');
+INSERT INTO prefixes (operator_id, prefix) VALUES (2, '031');
+INSERT INTO prefixes (operator_id, prefix) VALUES (3, '034');
+INSERT INTO prefixes (operator_id, prefix) VALUES (3, '035');
+
+-- Commissions inter-opérateurs (opérateur 1 vers 2 et 3)
+INSERT INTO operator_commissions (from_operator_id, to_operator_id, commission_percent) VALUES (1, 2, 2.0);
+INSERT INTO operator_commissions (from_operator_id, to_operator_id, commission_percent) VALUES (1, 3, 3.0);
+
+-- Clients pour les nouveaux opérateurs
+INSERT INTO clients (phone, name) VALUES ('0320000001', 'Charlie');
+INSERT INTO clients (phone, name) VALUES ('0340000001', 'David');
+INSERT INTO accounts (client_id, balance) VALUES (3, 100000);
+INSERT INTO accounts (client_id, balance) VALUES (4, 100000);
+

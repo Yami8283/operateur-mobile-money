@@ -25,4 +25,19 @@ class OperatorModel extends Model
 
         return $operator;
     }
+
+    /**
+     * Récupère tous les opérateurs avec leurs préfixes
+     */
+    public function getAllWithPrefixes()
+    {
+        $operators = $this->findAll();
+        $prefixModel = new PrefixModel();
+
+        foreach ($operators as &$op) {
+            $op['prefixes'] = $prefixModel->where('operator_id', $op['id'])->findAll();
+        }
+
+        return $operators;
+    }
 }

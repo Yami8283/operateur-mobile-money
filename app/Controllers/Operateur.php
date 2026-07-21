@@ -14,41 +14,28 @@ class Operateur extends Controller
     // PRÉFIXES
     // =============================================
 
-    /**
-     * Affiche la liste des préfixes de l'opérateur
-     */
     public function prefixes()
     {
         $operatorModel = new OperatorModel();
-        $operator = $operatorModel->getWithPrefixes(1);
-
-        if (!$operator) {
-            return redirect()->to('/')->with('error', 'Opérateur non trouvé.');
-        }
+        $operators = $operatorModel->getAllWithPrefixes();
 
         $data = [
-            'operator' => $operator,
-            'prefixes' => $operator['prefixes'] ?? []
+            'operators' => $operators
         ];
 
         return view('operateur/prefixes', $data);
     }
 
-    /**
-     * Formulaire d'ajout d'un préfixe
-     */
     public function ajouterPrefixeForm()
     {
         return view('operateur/ajouter_prefixe');
     }
 
-    /**
-     * Traitement de l'ajout d'un préfixe
-     */
     public function ajouterPrefixe()
     {
         $rules = [
-            'prefix' => 'required|min_length[3]|max_length[10]|is_unique[prefixes.prefix]'
+            'operator_id' => 'required|integer',
+            'prefix'      => 'required|min_length[3]|max_length[10]|is_unique[prefixes.prefix]'
         ];
 
         if (!$this->validate($rules)) {
@@ -57,7 +44,7 @@ class Operateur extends Controller
 
         $prefixModel = new PrefixModel();
         $prefixModel->insert([
-            'operator_id' => 1,
+            'operator_id' => $this->request->getPost('operator_id'),
             'prefix'      => $this->request->getPost('prefix')
         ]);
 
@@ -68,15 +55,11 @@ class Operateur extends Controller
     // OPÉRATIONS ET BARÈMES
     // =============================================
 
-    /**
-     * Affiche les types d'opérations et leurs barèmes
-     */
     public function operations()
     {
         $feeBandModel = new FeeBandModel();
         $feeBands = $feeBandModel->getWithOperationType();
 
-        // Regrouper par type d'opération
         $grouped = [];
         foreach ($feeBands as $band) {
             $grouped[$band['operation_name']][] = $band;
@@ -89,9 +72,6 @@ class Operateur extends Controller
         return view('operateur/operations', $data);
     }
 
-    /**
-     * Formulaire pour ajouter un barème de frais
-     */
     public function ajouterBaremeForm()
     {
         $operationTypeModel = new OperationTypeModel();
@@ -100,9 +80,6 @@ class Operateur extends Controller
         return view('operateur/ajouter_bareme', $data);
     }
 
-    /**
-     * Traitement de l'ajout d'un barème
-     */
     public function ajouterBareme()
     {
         $rules = [
@@ -129,9 +106,10 @@ class Operateur extends Controller
         return redirect()->to('operateur/operations')->with('success', 'Barème ajouté avec succès.');
     }
 
-        /**
-     * Affiche la situation des comptes clients
-     */
+    // =============================================
+    // CLIENTS
+    // =============================================
+
     public function clients()
     {
         $clientModel = new \App\Models\ClientModel();
@@ -140,23 +118,85 @@ class Operateur extends Controller
         return view('operateur/clients', $data);
     }
 
-        /**
-     * Affiche la situation des gains (frais perçus)
-     */
+    // =============================================
+    // GAINS
+    // =============================================
+
     public function gains()
     {
         $db = \Config\Database::connect();
         
-        // Total des frais par type d'opération
-        $query = $db->table('transactions')
-                    ->select('operation_types.name as operation_name, SUM(transactions.fee) as total_frais, COUNT(transactions.id) as nombre')
-                    ->join('operation_types', 'operation_types.id = transactions.operation_type_id')
-                    ->groupBy('transactions.operation_type_id')
-                    ->get();
+        $queryLocal = $db->table('transactions')
+            ->select('operation_types.name as operation_name, SUM(transactions.fee) as total_frais, COUNT(transactions.id) as nombre')
+            ->join('operation_types', 'operation_types.id = transactions.operation_type_id')
+            ->join('clients cf', 'cf.id = transactions.client_from', 'left')
+            ->join('clients ct', 'ct.id = transactions.client_to', 'left')
+            ->join('prefixes p_from', 'p_from.prefix = substr(cf.phone, 1, 3)', 'left')
+            ->join('prefixes p_to', 'p_to.prefix = substr(ct.phone, 1, 3)', 'left')
+            ->groupStart()
+                ->where('p_from.operator_id', 1)
+                ->orWhere('p_to.operator_id', 1)
+            ->groupEnd()
+            ->groupBy('transactions.operation_type_id')
+            ->get();
 
-        $data['gains'] = $query->getResultArray();
-        $data['total'] = array_sum(array_column($data['gains'], 'total_frais'));
+        $queryAutres = $db->table('transactions')
+            ->select('operation_types.name as operation_name, SUM(transactions.fee) as total_frais, COUNT(transactions.id) as nombre')
+            ->join('operation_types', 'operation_types.id = transactions.operation_type_id')
+            ->join('clients cf', 'cf.id = transactions.client_from', 'left')
+            ->join('clients ct', 'ct.id = transactions.client_to', 'left')
+            ->join('prefixes p_from', 'p_from.prefix = substr(cf.phone, 1, 3)', 'left')
+            ->join('prefixes p_to', 'p_to.prefix = substr(ct.phone, 1, 3)', 'left')
+            ->groupStart()
+                ->where('p_from.operator_id !=', 1)
+                ->where('p_from.operator_id IS NOT NULL')
+            ->groupEnd()
+            ->orGroupStart()
+                ->where('p_to.operator_id !=', 1)
+                ->where('p_to.operator_id IS NOT NULL')
+            ->groupEnd()
+            ->groupBy('transactions.operation_type_id')
+            ->get();
+
+        $gainsLocal = $queryLocal->getResultArray();
+        $gainsAutres = $queryAutres->getResultArray();
+        $totalLocal = array_sum(array_column($gainsLocal, 'total_frais'));
+        $totalAutres = array_sum(array_column($gainsAutres, 'total_frais'));
+
+        $data = [
+            'gainsLocal'  => $gainsLocal,
+            'gainsAutres' => $gainsAutres,
+            'totalLocal'  => $totalLocal,
+            'totalAutres' => $totalAutres
+        ];
 
         return view('operateur/gains', $data);
+    }
+
+    // =============================================
+    // COMMISSIONS
+    // =============================================
+
+    public function commissions()
+    {
+        $db = \Config\Database::connect();
+        
+        $query = $db->table('transactions')
+            ->select('operators.name as operateur_name, 
+                      SUM(transactions.amount) as total_transfere,
+                      COUNT(transactions.id) as nombre,
+                      oc.commission_percent')
+            ->join('clients ct', 'ct.id = transactions.client_to')
+            ->join('prefixes p', 'p.prefix = substr(ct.phone, 1, 3)')
+            ->join('operators', 'operators.id = p.operator_id')
+            ->join('operator_commissions oc', 'oc.to_operator_id = operators.id', 'left')
+            ->where('transactions.operation_type_id', 3)
+            ->where('p.operator_id !=', 1)
+            ->groupBy('p.operator_id')
+            ->get();
+
+        $data['commissions'] = $query->getResultArray();
+
+        return view('operateur/commissions', $data);
     }
 }

@@ -28,3 +28,9 @@ $routes->get('client/depot', 'Client::depot');
 $routes->get('client/do-depot', 'Client::doDepot');
 $routes->get('client/retrait', 'Client::retrait');
 $routes->get('client/do-retrait', 'Client::doRetrait');
+
+$routes->get('client/transfert', 'Client::transfert');
+$routes->get('client/do-transfert', 'Client::doTransfert');
+$routes->get('client/historique', 'Client::historique');
+
+$routes->get('operateur/commissions', 'Operateur::commissions');
